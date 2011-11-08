@@ -1,0 +1,6 @@
+Aide à la gestion des dépendances pour apt(itude) :
+- correction des dépendances manuelles/automatiques
+- détection des dépendances circulaires
+- détection des paquets orphelins
+
+Explications : https://www.debian-fr.org/aptitude-gestion-des-dependances-et-orphelins-t35575.html

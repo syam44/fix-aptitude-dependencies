@@ -1,0 +1,528 @@
+#!/bin/bash
+#
+# aptitude-fix-dependencies : Aide à la gestion des dépendances pour apt(itude)
+# Explications : https://www.debian-fr.org/aptitude-gestion-des-dependances-et-orphelins-t35575.html
+#
+# Auteur: syam
+# Distribué sous licence GPLv3 https://www.gnu.org/copyleft/gpl.html
+#
+# TODO: i18n
+#
+
+
+#-----------------------------------------------------------------------------
+# Variables personnalisables
+#-----------------------------------------------------------------------------
+
+
+#
+# Liste des paquets à forcer en Manuel, séparés par des espaces, tabulations,
+# ou retours chariots.
+#
+# À minima, indiquer ici des paquets possédant des dépendances circulaires
+# (par exemple, tasksel pour le groupe tasksel et tasksel-data) faute de quoi ces
+# paquets seront tous marqués en Manuel et le script grognera à chaque exécution.
+# Pas d'inquiétude à avoir, ce script vous avertira dans tous les cas pour que
+# vous puissiez rajouter les paquets correspondants dans cette liste.
+#
+# Vous pouvez aussi indiquer ici les paquets que vous souhaitez absolument garder
+# en Manuel quoi qu'il arrive (notamment pour éviter que la désinstallation d'un
+# métapaquet n'entraîne la désinstallation automatique d'un paquet important).
+#
+MANUAL_PACKAGES=""
+
+
+#
+# Fonction appellée à la fin du script si tout s'est bien passé, permettant d'ajouter
+# des nettoyages personnalisés (par exemple « aptitude clean »).
+#
+user_defined_cleanup()
+{
+}
+
+
+#
+# Fonction appellée pour déterminer les paquets orphelins.
+# Vous pouvez personnaliser le comportement de « deborphan » comme vous le souhaitez,
+# du moment que la liste retournée ne contient que des noms de paquets (un par ligne).
+# L'option « --no-show-section » est donc très importante.
+#
+user_defined_deborphan()
+{
+  deborphan --ignore-suggests --guess-interpreters --no-show-section
+}
+
+
+#-----------------------------------------------------------------------------
+# NE RIEN MODIFIER À PARTIR D'ICI
+#-----------------------------------------------------------------------------
+
+
+# Emplacement du répertoire temporaire
+LOCK_DIR="/tmp/fix-aptitude-auto.lock"
+# Couleurs
+COLOR_ERROR="\033[01;31m" # Rouge vif
+COLOR_WARN="\033[01;33m"  # Jaune vif
+COLOR_ARGUMENT="\033[36m" # Cyan sombre
+COLOR_NONE="\033[00m"
+# Expansion des codes d'échappement pour echo.
+shopt -s xpg_echo
+
+# Forcer la sortie des commandes en anglais pour faciliter le scripting.
+export LANG=""
+export LANGUAGE=""
+
+
+#-----------------------------------------------------------------------------
+# Fonctions
+#-----------------------------------------------------------------------------
+
+
+#
+# Créer un répertoire temporaire qui sert également de mutex global pour le
+# script (instance unique).
+# Quitte le script si ce répertoire existe déjà.
+#
+create_instance_lockdir()
+{
+  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} le dossier « ${COLOR_ARGUMENT}$LOCK_DIR${COLOR_NONE} » existe déjà, ce qui indique que $SCRIPT_NAME est probablement déjà en cours d'exécution."
+    echo >&2 "   Si vous êtes certain(e) que ce n'est pas le cas, cela indique probablement que le script s'est arrêté de manière inattendue lors de sa précédente invocation, veuillez alors supprimer manuellement le dossier « ${COLOR_ARGUMENT}$LOCK_DIR${COLOR_NONE} » et relancer $SCRIPT_NAME."
+    exit 255
+  fi
+}
+
+
+#
+# Quitter le script proprement en effaçant le répertoire temporaire / mutex d'instance.
+#
+# Usage: exit_clean RETURN_CODE
+#
+exit_clean()
+{
+  rm -rf "$LOCK_DIR" 2>/dev/null
+  exit $1
+}
+
+
+#
+# Compte le nombre de lignes dans une variable
+#
+# Usage: count_lines VARIABLE
+#
+count_lines()
+{
+  if [ "$1" = "" ]; then
+    echo "0"
+  else
+    echo "$1" | wc -l
+  fi
+}
+
+
+#
+# Prépare une liste de paquets dans un fichier temporaire, dans un format utilisable par
+# la commande « comm ».
+# La liste de paquets consiste en un seul argument au sein duquel les paquets
+# sont séparés par des espaces, tabulations ou retours chariots.
+#
+# Usage: prepare_comm_file FICHIER LISTE_DE_PAQUETS
+#
+prepare_comm_file()
+{
+  local PACKAGE
+  rm "$1" 2>/dev/null
+  touch "$1"
+  for PACKAGE in $2; do
+    echo "$PACKAGE" >> "$1"
+  done
+  cat "$1" | sed 's/^[ \t]*//g;s/[ \t]*$//g' | sort | uniq > "$1~tmp"
+  mv "$1~tmp" "$1"
+}
+
+
+#
+# Vérifie qu'aptitude est installé, et retourne sa version.
+# BUG: La détection de version est nécessaire à cause du bug #603862 concernant
+# les motifs de recherche ~aupgrade / ~adowngrade / ~areinstall dans les versions
+# 0.6.3 et 0.6.4 (stable/testing/unstable actuelles).
+# http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=603862
+#
+aptitude_version()
+{
+  # Détection de l'exécutable
+  if [ ! -x "$(which aptitude)" ]; then
+    echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} ${COLOR_ARGUMENT}aptitude${COLOR_NONE} n'a pas été trouvé."
+    exit 255
+  fi
+  # Récupération de la version
+  aptitude --help | head -n 1 | sed 's@^aptitude \([^ ]\+\)@\1@g'
+}
+
+
+#
+# Contourne le bug #603862 en retournant un motif spécifique à chaque version supportée d'aptitude.
+#
+aptitude_pending_actions_pattern()
+{
+  # BUG: workaround #603862
+  if [ "$APTITUDE_VERSION" = "0.6.3" ] || [ "$APTITUDE_VERSION" = "0.6.4" ]; then
+    echo '!~aupgrade'
+  # TODO: elif <VERSION CORRIGÉE>
+  #  echo '~ainstall|~areinstall|~aupgrade|~adowngrade|~aremove|~apurge'
+  else
+    echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} ${COLOR_ARGUMENT}aptitude $APTITUDE_VERSION${COLOR_NONE} n'est pas géré par ce script."
+    exit_clean 255
+  fi
+}
+
+#
+# Construire le motif de recherche correspondant aux noms de paquets exacts
+# fournis en paramètre.
+# La liste de paquets consiste en un seul argument au sein duquel les paquets
+# sont séparés par des espaces, tabulations ou retours chariots.
+#
+# Usage: aptitude_exact_names_pattern LISTE_DE_PAQUETS
+#
+aptitude_exact_names_pattern()
+{
+  local PACKAGE
+  local PATTERN
+  for PACKAGE in $1; do
+    PATTERN="$PATTERN ?exact-name($PACKAGE),"
+  done
+  if [ "$PATTERN" = "" ]; then
+    return 1
+  fi
+  echo "?or($PATTERN)"
+  return 0
+}
+
+
+#
+# Affiche une liste de paquets au format FLAGS-VERSION-PAQUET.
+# La liste de paquets consiste en un seul argument au sein duquel les paquets
+# sont séparés par des espaces, tabulations ou retours chariots.
+#
+# Usage: aptitude_display_list LISTE_DE_PAQUETS
+#
+aptitude_display_list()
+{
+  local PACKAGES="$(aptitude search "$(aptitude_exact_names_pattern "$1")" -F "%c%a%M    %v  %p")"
+  echo
+  echo "État   Version     Paquet"
+  echo "------------------------------------------------------------------------------"
+  echo "$PACKAGES"
+  return 0
+}
+
+
+#
+# Vérifie qu'aucune action n'est prévue et qu'aucun paquet n'est cassé.
+# Dans le cas contraire, afficher les problèmes et quitter le script.
+#
+aptitude_check_clean_state()
+{
+  echo "Recherche des actions prévues et des dépendances cassées..."
+  local PENDING_PACKAGES="$(aptitude search "~b|($(aptitude_pending_actions_pattern))" -F "%c%a%M    %v  %V  %p")"
+  if [ "$PENDING_PACKAGES" != "" ]; then
+    echo
+    echo "État   Depuis      Vers        Paquet"
+    echo "------------------------------------------------------------------------------"
+    echo "$PENDING_PACKAGES"
+    echo
+    echo "${COLOR_WARN}ATTENTION :${COLOR_NONE} $SCRIPT_NAME ne peut pas continuer. Veuillez appliquer ou annuler les actions prévues, et résoudre les dépendances cassées avant de relancer $SCRIPT_NAME."
+    exit_clean 1
+  fi
+}
+
+
+#
+# Marquer les paquets en Automatique, sauf ceux spécifiés dans la variable MANUAL_PACKAGES.
+#
+aptitude_markauto()
+{
+  # Préparer la liste des paquets Manuels pour utilisation avec la commande « comm »
+  local PACKAGES_FILE="$LOCK_DIR/aptitude_markauto.comm"
+  prepare_comm_file "$PACKAGES_FILE" "$MANUAL_PACKAGES"
+
+  echo "Marquage des paquets en « Automatique » en fonction des dépendances des paquets..."
+  aptitude --schedule-only unmarkauto '~i'
+  aptitude --schedule-only -o "Aptitude::Delete-Unused=true" markauto "$(aptitude_exact_names_pattern "$(aptitude search '~i((~Rdepends:~i)|(~Rpredepends:~i)|(~Rrecommends:~i))' -F '%p' | sed 's/^[ \t]*//g;s/[ \t]*$//g' | sort | comm -1 -3 "$PACKAGES_FILE" -)")"
+}
+
+
+#
+# Recherche des dépendances circulaires.
+#
+aptitude_detect_circular_dependencies()
+{
+  echo "Recherche des dépendances circulaires..."
+  local PENDING_PACKAGES="$(aptitude search "$(aptitude_pending_actions_pattern)" -F "%p")"
+  if [ "$PENDING_PACKAGES" != "" ]; then
+    echo
+    echo "${COLOR_WARN}ATTENTION :${COLOR_NONE} des paquets marqués en « Automatique » contiennent des dépendances circulaires."
+
+    # Conserver tous les paquets concernés (chaînes cycliques et leurs éventuelles dépendances)
+    aptitude --schedule-only keep "$(aptitude_exact_names_pattern "$PENDING_PACKAGES")"
+    # Identifier les paquets faisant réellement partie d'une chaîne cyclique
+    local CIRCULAR_PACKAGES="$(aptcache_cycles_remove_noncircular "$PENDING_PACKAGES")"
+    # Identifier les paquets qui ne sont que des dépendances des chaînes cycliques
+    local NONCIRCULAR_PACKAGES="$(aptcache_cycles_keep_noncircular "$PENDING_PACKAGES" "$CIRCULAR_PACKAGES")"
+    # Marquer les dépendances non-cycliques en Automatique
+    if [ "$NONCIRCULAR_PACKAGES" != "" ]; then
+      aptitude --schedule-only -o "Aptitude::Delete-Unused=true" markauto "$(aptitude_exact_names_pattern "$NONCIRCULAR_PACKAGES")"
+    fi
+    # Afficher les dépendances cycliques
+    aptitude_display_list "$CIRCULAR_PACKAGES"
+    echo
+    # Afficher les différentes chaînes cycliques
+    echo "Les différentes chaînes de dépendances circulaires sont :"
+    aptcache_cycles_split_chains "$CIRCULAR_PACKAGES" "    * "
+    echo "La procédure correcte est de rajouter à la liste « ${COLOR_ARGUMENT}paquets manuels${COLOR_NONE} » de $SCRIPT_NAME au moins un paquet de chaque chaîne de dépendances circulaires afin de casser les cycles de dépendances, puis de relancer $SCRIPT_NAME pour appliquer la nouvelle configuration. En attendant, ces paquets ont tous été marqués en « Manuel », ce qui n'est probablement pas le résultat souhaité mais permet d'éviter leur suppression accidentelle."
+    echo
+
+    # NORMALEMENT ça ne devrait pas être utile, mais je préfère gaspiller un peu de CPU à vérifier l'état des paquets une dernière fois
+    # plutôt que de risquer des suppressions accidentelles
+    PENDING_PACKAGES="$(aptitude search "$(aptitude_pending_actions_pattern)" -F "%p")"
+    if [ "$PENDING_PACKAGES" != "" ]; then
+      echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} il y a un bug dans l'identification des dépendances circulaires."
+      echo >&2 "    Les paquets suivants ne sont pas censés faire partie d'une chaîne de dépendances circulaires mais ${COLOR_ARGUMENT}aptitude${COLOR_NONE} dit le contraire."
+      aptitude --schedule-only keep "$(aptitude_exact_names_pattern "$PENDING_PACKAGES")"
+      aptitude_display_list "$PENDING_PACKAGES"
+      exit_clean 255
+    fi
+  fi
+}
+
+
+#
+# Récupère les informations de dépendances à partir de « apt-cache depends »
+# en construisant un cache disque local pour accélerer le traitement.
+# Seuls PreDepends, Depends et Recommends sont considérés.
+#
+# Usage: aptcache_dependencies PAQUET [SUFFIXE_DE_FICHIER] [FICHIER_COMM]
+#
+aptcache_dependencies()
+{
+  # Créer le répertoire de cache si nécessaire
+  local CACHE_DIR="$LOCK_DIR/aptcache-dependencies.cache"
+  mkdir -p "$CACHE_DIR"
+  local CACHE_FILE="$CACHE_DIR/$1@$2"
+  # Récupérer les informations soit à partir du cache disque, soit directement via apt-cache
+  if [ -f "$CACHE_FILE" ]; then
+    cat "$CACHE_FILE"
+  else
+    local DEPENDENCIES="$(apt-cache depends "$PACKAGE" | grep -E "(Depends|Recommends): " | sed 's@^.*: <\?\+\([^ >]\+\).*$@\1@g' | sort)"
+    if [ -f "$3" ]; then
+      DEPENDENCIES="$(echo "$DEPENDENCIES" | comm -1 -2 "$3" -)"
+    fi
+    echo "$DEPENDENCIES" > "$CACHE_FILE"
+    echo "$DEPENDENCIES"
+  fi
+}
+
+
+#
+# Liste de dépendances circulaires : ne conserver dans la liste que les paquets
+# faisant réellement partie d'une chaîne cyclique.
+# La liste de paquets consiste en un seul argument au sein duquel les paquets
+# sont séparés par des espaces, tabulations ou retours chariots.
+#
+# On suit les dépendances de chaque paquet et on ne garde au fur et à mesure que
+# ceux qui ont des dépendances vers les paquets contenus dans la liste, puis on
+# recommence récursivement avec le résultat comme point de départ, jusqu'à temps
+# que le résultat soit identique à la liste de paquets.
+#
+# Usage: aptcache_cycles_remove_noncircular LISTE_DE_PAQUETS
+#
+aptcache_cycles_remove_noncircular()
+{
+  # Construire le cache des dépendances
+  for PACKAGE in $1; do
+    aptcache_dependencies "$PACKAGE" >/dev/null
+  done
+  # Trouver les paquets virtuels fournis par chaque paquet, et les rajouter aux dépendances
+  local CACHE_DIR="$LOCK_DIR/aptcache-dependencies.cache"
+  for PACKAGE in $1; do
+    local VIRTUAL_PACKAGES="$(apt-cache show "$PACKAGE" | grep "^Provides: " | sed 's@^Provides: \+\(.*\) *$@\1@g;s@ \+@\n@g')"
+    for VIRTUAL_PACKAGE in $VIRTUAL_PACKAGES; do
+      for REAL_PACKAGE in $1; do
+        local CACHE_FILE="$CACHE_DIR/$REAL_PACKAGE@"
+        if [ "$(grep -cxF "$VIRTUAL_PACKAGE" "$CACHE_FILE")" != "0" ]; then
+          # Rajouter le paquet réel au cache de dépendances
+          echo "$PACKAGE" >> "$CACHE_FILE"
+          # Trier le cache pour utilisation avec comm
+          cat "$CACHE_FILE" | sort | uniq > "$CACHE_FILE~tmp"
+          mv "$CACHE_FILE~tmp" "$CACHE_FILE"
+        fi
+      done
+    done
+  done
+  # Trouver les dépendances non-circulaires
+  aptcache_cycles_remove_noncircular__reduce_dependencies "$1"
+}
+
+
+#
+# Partie récursive pour aptcache_cycles_remove_noncircular()
+#
+# Usage: aptcache_cycles_remove_noncircular__reduce_dependencies LISTE_DE_PAQUETS
+#
+aptcache_cycles_remove_noncircular__reduce_dependencies()
+{
+  local PACKAGES_FILE="$LOCK_DIR/aptcache_cycles_remove_noncircular.comm"
+  prepare_comm_file "$PACKAGES_FILE" "$1"
+
+  local PACKAGE
+  local CIRCULAR_PACKAGES=""
+  for PACKAGE in $1; do
+    local DEPENDENCIES="$(aptcache_dependencies "$PACKAGE" | comm -1 -2 "$PACKAGES_FILE" -)"
+    if [ "$DEPENDENCIES" != "" ]; then
+      CIRCULAR_PACKAGES="$CIRCULAR_PACKAGES $PACKAGE"
+    fi
+  done
+  prepare_comm_file "$PACKAGES_FILE~tmp" "$CIRCULAR_PACKAGES"
+  if [ "$(cat "$PACKAGES_FILE")" = "$(cat "$PACKAGES_FILE~tmp")" ]; then
+    echo "$1"
+  else
+    aptcache_cycles_remove_noncircular__reduce_dependencies "$CIRCULAR_PACKAGES"
+  fi
+}
+
+
+#
+# Liste de dépendances circulaires : ne conserver dans la liste que les paquets
+# faisant ne faisant pas partie d'une chaîne cyclique.
+# Chaque liste de paquets consiste en un seul argument au sein duquel les paquets
+# sont séparés par des espaces, tabulations ou retours chariots.
+#
+# Usage: aptcache_cycles_keep_noncircular LISTE_DE_PAQUETS_COMPLETE LISTE_DE_PAQUETS_CIRCULAIRES
+#
+aptcache_cycles_keep_noncircular()
+{
+  local PACKAGES_FILE="$LOCK_DIR/aptcache_cycles_keep_noncircular.all.comm"
+  local CIRCULAR_PACKAGES_FILE="$LOCK_DIR/aptcache_cycles_keep_noncircular.circular.comm"
+  prepare_comm_file "$PACKAGES_FILE" "$1"
+  prepare_comm_file "$CIRCULAR_PACKAGES_FILE" "$2"
+  comm -2 -3 "$PACKAGES_FILE" "$CIRCULAR_PACKAGES_FILE"
+}
+
+
+#
+# Sépare les différentes chaînes cycliques d'une liste de paquets, à raison
+# d'une par ligne (chaque ligne étant précédée d'un éventuel préfixe).
+# La liste de paquets consiste en un seul argument au sein duquel les paquets
+# sont séparés par des espaces, tabulations ou retours chariots.
+#
+# Usage: aptcache_cycles_split_chains LISTE_DE_PAQUETS PRÉFIXE
+#
+aptcache_cycles_split_chains()
+{
+  local PACKAGES_FILE="$LOCK_DIR/aptcache_cycles_split_chains.comm"
+  prepare_comm_file "$PACKAGES_FILE" "$1"
+  local CHAIN_PREFIX="$2"
+  local CHAINS="$(aptcache_cycles_split_chains__follow_all_cycles "$1" | sort | uniq)"
+  # Eliminer les préfixes communs
+  local CHAIN1
+  echo "$CHAINS" | while read CHAIN1; do
+    IS_PREFIX="$(local CHAIN2
+                 echo "$CHAINS" | while read CHAIN2; do
+                   if [ "$CHAIN1" != "$CHAIN2" ] && [[ "$CHAIN2" = "$CHAIN1"* ]]; then
+                     echo "true"
+                     break
+                   fi
+                 done)"
+    if [ "$IS_PREFIX" != "true" ]; then
+      echo "$CHAIN_PREFIX""$CHAIN1"
+    fi
+  done
+}
+
+
+#
+# Premier niveau pour aptcache_cycles_split_chains()
+#
+# Usage: aptcache_cycles_split_chains__follow_all_cycles LISTE_DE_PAQUETS
+#
+aptcache_cycles_split_chains__follow_all_cycles()
+{
+  local PACKAGE
+  for PACKAGE in $1; do
+    echo $(aptcache_cycles_split_chains__follow_single_cycle "$PACKAGE" | sort | uniq)
+  done
+}
+
+
+#
+# Deuxième niveau pour aptcache_cycles_split_chains()
+#
+# Usage: aptcache_cycles_split_chains__follow_single_cycle LISTE_DE_PAQUETS_DÉJÀ_TRAITÉS
+#
+aptcache_cycles_split_chains__follow_single_cycle()
+{
+  local PACKAGES_FILE="$LOCK_DIR/aptcache_cycles_split_chains.comm"
+  local DEPENDENCIES_FILE="$LOCK_DIR/aptcache_cycles_split_chains__follow_cycle.comm"
+
+  local PACKAGE
+  local DEPENDENCIES="$1"
+  for PACKAGE in $1; do
+    DEPENDENCIES="$DEPENDENCIES $(aptcache_dependencies "$PACKAGE" "aptcache_cycles_split_chains" "$PACKAGES_FILE")"
+  done
+  prepare_comm_file "$DEPENDENCIES_FILE" "$DEPENDENCIES"
+  DEPENDENCIES="$(cat "$DEPENDENCIES_FILE")"
+  echo "$DEPENDENCIES"
+  for PACKAGE in $DEPENDENCIES; do
+    if [ "$(echo "$1" | grep -F -x "$PACKAGE")" = "" ]; then
+      aptcache_cycles_split_chains__follow_single_cycle "$DEPENDENCIES"
+    fi
+  done
+}
+
+
+#
+# Recherche des paquets orphelins.
+#
+aptitude_detect_orphans()
+{
+  if [ ! -x "$(which deborphan)" ]; then
+    echo "deborphan n'est pas installé, impossible de déterminer les bibliothèques orphelines."
+  else
+    local IGNORED_ORPHANS="$(count_lines "$(deborphan -L)")"
+    local ORPHANS="$(user_defined_deborphan)"
+    if [ "$ORPHANS" = "" ]; then
+      echo "deborphan : aucune bibliothèque orpheline ($IGNORED_ORPHANS ignorées)."
+    else
+      echo "${COLOR_WARN}deborphan :${COLOR_NONE} $(count_lines "$ORPHANS") bibliothèques orphelines ($IGNORED_ORPHANS ignorées). Si vous êtes certain(e) que ces paquets ne vous sont pas utiles, vous pouvez les supprimer manuellement."
+      echo "    Pour que ces paquets n'apparaissent plus comme orphelins, utilisez « ${COLOR_ARGUMENT}deborphan -A${COLOR_NONE} » (cf. ${COLOR_ARGUMENT}man deborphan${COLOR_NONE})."
+      aptitude_display_list "$ORPHANS"
+    fi
+  fi
+}
+
+
+#-----------------------------------------------------------------------------
+# main()
+#-----------------------------------------------------------------------------
+
+
+# Nom du script
+SCRIPT_NAME="${COLOR_ARGUMENT}$(basename "$(readlink -f "$0")")${COLOR_NONE}"
+# Version d'aptitude
+APTITUDE_VERSION="$(aptitude_version)"
+# Créer le répertoire temporaire / mutex d'instance.
+create_instance_lockdir
+
+# Arrêter le script s'il y a des actions prévues ou des paquets cassés.
+aptitude_check_clean_state
+# Marquer les paquets en Automatique, sauf ceux spécifiés dans la variable MANUAL_PACKAGES.
+aptitude_markauto
+# Recherche des dépendances circulaires.
+aptitude_detect_circular_dependencies
+# Recherche des paquets orphelins.
+aptitude_detect_orphans
+
+# Fonction de nettoyage personnalisée par l'utilisateur.
+user_defined_cleanup
+
+exit_clean 0

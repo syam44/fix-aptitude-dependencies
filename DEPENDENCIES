@@ -1,0 +1,6 @@
+Note: the following dependencies are expressed as Debian package names.
+
+Depends:
+    aptitude >= 0.6.3 <= 0.6.4
+Recommends:
+    deborphan

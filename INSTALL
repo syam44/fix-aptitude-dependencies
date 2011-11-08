@@ -1,0 +1,6 @@
+# cp fix-aptitude-dependencies /usr/local/sbin
+# chown root:root /usr/local/sbin/fix-aptitude-dependencies
+# chmod 750 /usr/local/sbin/fix-aptitude-dependencies
+
+Usage:
+# fix-aptitude-dependencies
