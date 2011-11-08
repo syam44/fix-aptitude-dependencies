@@ -1,10 +1,14 @@
 #!/bin/bash
 #
-# aptitude-fix-dependencies : Aide à la gestion des dépendances pour apt(itude)
-# Explications : https://www.debian-fr.org/aptitude-gestion-des-dependances-et-orphelins-t35575.html
+# fix-aptitude-dependencies
+# https://github.com/syam44/fix-aptitude-dependencies
 #
-# Auteur: syam
-# Distribué sous licence GPLv3 https://www.gnu.org/copyleft/gpl.html
+# Distributed under the GNU General Public License version 3
+# https://www.gnu.org/copyleft/gpl.html
+#
+# Authors: syam (aks92@free.fr)
+#
+# Description: Aide à la gestion des dépendances pour Debian apt(itude).
 #
 # TODO: i18n
 #
