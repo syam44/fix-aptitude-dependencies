@@ -9,6 +9,7 @@
 # Authors: syam (aks92@free.fr)
 #
 # Description: Aide à la gestion des dépendances pour Debian apt(itude).
+# Explications: https://www.debian-fr.org/aptitude-gestion-des-dependances-et-orphelins-t35575.html
 #
 # TODO: i18n
 #
