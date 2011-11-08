@@ -1,6 +1,11 @@
-# cp fix-aptitude-dependencies /usr/local/sbin
-# chown root:root /usr/local/sbin/fix-aptitude-dependencies
-# chmod 750 /usr/local/sbin/fix-aptitude-dependencies
+Install:
+# ./configure install
 
 Usage:
 # fix-aptitude-dependencies
+
+Remove (keep configuration):
+# ./configure remove
+
+Purge (delete configuration):
+# ./configure purge

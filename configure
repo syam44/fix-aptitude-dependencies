@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# fix-aptitude-dependencies
+# https://github.com/syam44/fix-aptitude-dependencies
+#
+# Distributed under the GNU General Public License version 3
+# https://www.gnu.org/copyleft/gpl.html
+#
+# Authors: syam (aks92@free.fr)
+#
+# Description: Installer.
+#
+set -e
+
+if [ "$1" = "purge" ] || [ "$1" = "remove" ]; then
+  rm "/usr/local/sbin/fix-aptitude-dependencies" 2>/dev/null || true
+  if [ "$1" = "purge" ]; then
+    rm "/etc/fix-aptitude-dependencies.conf" 2>/dev/null || true
+  fi
+elif [ "$1" = "install" ]; then
+  "$0" remove
+  cd "$(dirname "$(readlink -f "$0")")"
+  cp ./fix-aptitude-dependencies /usr/local/sbin/
+  chown root:root /usr/local/sbin/fix-aptitude-dependencies
+  chmod 750 /usr/local/sbin/fix-aptitude-dependencies
+  cp --no-clobber ./fix-aptitude-dependencies.conf /etc/
+  chown root:root /etc/fix-aptitude-dependencies.conf
+  chmod 700 /etc/fix-aptitude-dependencies.conf
+else
+  echo "Usage: $(basename "$0") install | remove | purge"
+fi
