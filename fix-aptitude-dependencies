@@ -248,7 +248,7 @@ aptitude_detect_circular_dependencies()
     # Afficher les différentes chaînes cycliques
     echo "Les différentes chaînes de dépendances circulaires sont :"
     aptcache_cycles_split_chains "$CIRCULAR_PACKAGES" "    * "
-    echo "La procédure correcte est de rajouter à la liste « ${COLOR_ARGUMENT}paquets manuels${COLOR_NONE} » de $SCRIPT_NAME au moins un paquet de chaque chaîne de dépendances circulaires afin de casser les cycles de dépendances, puis de relancer $SCRIPT_NAME pour appliquer la nouvelle configuration. En attendant, ces paquets ont tous été marqués en « Manuel », ce qui n'est probablement pas le résultat souhaité mais permet d'éviter leur suppression accidentelle."
+    echo "La procédure correcte est de rajouter à la liste « ${COLOR_ARGUMENT}paquets manuels${COLOR_NONE} » de $SCRIPT_NAME_CONF au moins un paquet de chaque chaîne de dépendances circulaires afin de casser les cycles de dépendances, puis de relancer $SCRIPT_NAME pour appliquer la nouvelle configuration. En attendant, ces paquets ont tous été marqués en « Manuel », ce qui n'est probablement pas le résultat souhaité mais permet d'éviter leur suppression accidentelle."
     echo
 
     # NORMALEMENT ça ne devrait pas être utile, mais je préfère gaspiller un peu de CPU à vérifier l'état des paquets une dernière fois
@@ -477,6 +477,7 @@ aptitude_detect_orphans()
 
 # Nom du script
 SCRIPT_NAME="${COLOR_ARGUMENT}$(basename "$(readlink -f "$0")")${COLOR_NONE}"
+SCRIPT_NAME_CONF="${COLOR_ARGUMENT}$(basename "$(readlink -f "$0")").conf${COLOR_NONE}"
 # Version d'aptitude
 APTITUDE_VERSION="$(aptitude_version)"
 # Créer le répertoire temporaire / mutex d'instance.
