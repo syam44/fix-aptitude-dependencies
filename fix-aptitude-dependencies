@@ -33,7 +33,7 @@ export LANGUAGE=""
 #-----------------------------------------------------------------------------
 # Importer la configuration
 #-----------------------------------------------------------------------------
-CONFIG_FILE="/etc/fix-aptitude-dependencies.conf"
+CONFIG_FILE="/etc/apt/fix-aptitude-dependencies.conf"
 
 if [ -f "$CONFIG_FILE" ]; then
   . "$CONFIG_FILE" || echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} problème lors de la lecture du fichier de configuration « ${COLOR_ARGUMENT}$CONFIG_FILE${COLOR_NONE} »."
