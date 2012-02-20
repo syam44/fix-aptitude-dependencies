@@ -114,7 +114,7 @@ prepare_comm_file()
 # Vérifie qu'aptitude est installé, et retourne sa version.
 # BUG: La détection de version est nécessaire à cause du bug #603862 concernant
 # les motifs de recherche ~aupgrade / ~adowngrade / ~areinstall dans les versions
-# 0.6.3 et 0.6.4 (stable/testing/unstable actuelles).
+# 0.6.3, 0.6.4, 0.6.5.
 # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=603862
 #
 aptitude_version()
@@ -135,7 +135,7 @@ aptitude_version()
 aptitude_pending_actions_pattern()
 {
   # BUG: workaround #603862
-  if [ "$APTITUDE_VERSION" = "0.6.3" ] || [ "$APTITUDE_VERSION" = "0.6.4" ]; then
+  if [ "$APTITUDE_VERSION" = "0.6.3" ] || [ "$APTITUDE_VERSION" = "0.6.4" ] || [ "$APTITUDE_VERSION" = "0.6.5" ]; then
     echo '!~aupgrade'
   # TODO: elif <VERSION CORRIGÉE>
   #  echo '~ainstall|~areinstall|~aupgrade|~adowngrade|~aremove|~apurge'
@@ -480,6 +480,8 @@ SCRIPT_NAME="${COLOR_ARGUMENT}$(basename "$(readlink -f "$0")")${COLOR_NONE}"
 SCRIPT_NAME_CONF="${COLOR_ARGUMENT}$(basename "$(readlink -f "$0")").conf${COLOR_NONE}"
 # Version d'aptitude
 APTITUDE_VERSION="$(aptitude_version)"
+aptitude_pending_actions_pattern > /dev/null
+
 # Créer le répertoire temporaire / mutex d'instance.
 create_instance_lockdir
 
