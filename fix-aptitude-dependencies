@@ -137,11 +137,17 @@ aptitude_pending_actions_pattern()
   # BUG: workaround #603862
   if [ "$APTITUDE_VERSION" = "0.6.3" ] || [ "$APTITUDE_VERSION" = "0.6.4" ] || [ "$APTITUDE_VERSION" = "0.6.5" ]; then
     echo '!~aupgrade'
-  # TODO: elif <VERSION CORRIGÉE>
-  #  echo '~ainstall|~areinstall|~aupgrade|~adowngrade|~aremove|~apurge'
   else
-    echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} ${COLOR_ARGUMENT}aptitude $APTITUDE_VERSION${COLOR_NONE} n'est pas géré par ce script."
-    exit_clean 255
+    # aptitude 0.6.6 fixes #603862
+    local DOT_MAJOR="$(echo -n "$APTITUDE_VERSION" | sed 's@^\([^.]\+\).*$@\1@')"
+    local DOT_MINOR="$(echo -n "$APTITUDE_VERSION" | sed 's@^[^.]\+\.\([^.]\+\).*$@\1@')"
+    local DOT_BUILD="$(echo -n "$APTITUDE_VERSION" | sed 's@^[^.]\+\.[^.]\+\.\([^.]\+\).*$@\1@')"
+    if [ "$DOT_MAJOR" -gt 0 ] || [ "$DOT_MINOR" -gt 6 ] || ( [ "$DOT_MINOR" -eq 6 ] && [ "$DOT_BUILD" -ge 6 ] ); then
+      echo '~ainstall|~areinstall|~aupgrade|~adowngrade|~aremove|~apurge'
+    else
+      echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} ${COLOR_ARGUMENT}aptitude $APTITUDE_VERSION${COLOR_NONE} n'est pas géré par ce script."
+      exit_clean 255
+    fi
   fi
 }
 
