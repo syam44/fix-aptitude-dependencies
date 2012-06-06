@@ -464,7 +464,7 @@ aptitude_detect_orphans()
     echo "deborphan n'est pas installé, impossible de déterminer les bibliothèques orphelines."
   else
     local IGNORED_ORPHANS="$(count_lines "$(deborphan -L)")"
-    local ORPHANS="$(user_defined_deborphan)"
+    local ORPHANS="$(user_defined_deborphan | sed 's@^\([a-zA-Z0-9+.-]\+\).*\?$@\1@g')"
     if [ "$ORPHANS" = "" ]; then
       echo "deborphan : aucune bibliothèque orpheline ($IGNORED_ORPHANS ignorées)."
     else
