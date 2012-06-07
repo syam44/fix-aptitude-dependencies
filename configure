@@ -12,6 +12,12 @@
 #
 set -e
 
+# Vérifier qu'on est bien sous root
+if [ "$(id -u)" != "0" ]; then
+  echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} ce script nécessite les droits root."
+  exit 255
+fi
+
 if [ "$1" = "purge" ] || [ "$1" = "remove" ]; then
   rm "/usr/local/sbin/fix-aptitude-dependencies" 2>/dev/null || true
   if [ "$1" = "purge" ]; then

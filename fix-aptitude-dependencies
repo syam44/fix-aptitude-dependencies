@@ -488,6 +488,12 @@ SCRIPT_NAME_CONF="${COLOR_ARGUMENT}$(basename "$(readlink -f "$0")").conf${COLOR
 APTITUDE_VERSION="$(aptitude_version)"
 aptitude_pending_actions_pattern > /dev/null
 
+# Vérifier qu'on est bien sous root
+if [ "$(id -u)" != "0" ]; then
+  echo >&2 "${COLOR_ERROR}ERREUR :${COLOR_NONE} ce script nécessite les droits root."
+  exit 255
+fi
+
 # Créer le répertoire temporaire / mutex d'instance.
 create_instance_lockdir
 
