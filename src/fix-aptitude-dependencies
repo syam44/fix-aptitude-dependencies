@@ -472,6 +472,7 @@ sub configRead {
   $config->file($CONFIG_FILE);
   my $manual = $config->get('manual-packages');
   $manual =~ s@\n@ @g;
+  $manual =~ s@\t@ @g;
   $manual =~ s@ +@ @g;
   trimArrayLR($manual);
   $config->set('manual-packages', $manual);
