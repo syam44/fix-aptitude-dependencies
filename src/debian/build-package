@@ -36,7 +36,4 @@ chmod u+rwx,a+rx "$PKG_DIR/usr/sbin/fix-aptitude-dependencies"
 dpkg-deb --build "$PKG_DIR"
 rm -rf "$PKG_DIR"
 
-mv "$PKG_DIR.deb" "../.."
-cd ../..
-rm -f fix-aptitude-dependencies.deb || true
-ln -s "$(basename "$PKG_DIR.deb")" fix-aptitude-dependencies.deb
+mv "$PKG_DIR.deb" "../../fix-aptitude-dependencies.deb"
