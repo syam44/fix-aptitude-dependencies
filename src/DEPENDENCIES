@@ -1,6 +1,9 @@
-Note: the following dependencies are expressed as Debian package names.
-
 Depends:
-    aptitude >= 0.6.3 <= 0.6.4
+  aptitude (>= 0.6.3)
+  debianutils
+  libappconfig-perl
+  libreadonly-perl
+  perl
 Recommends:
-    deborphan
+  deborphan
+  ncurses-bin

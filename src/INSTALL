@@ -1,11 +1,8 @@
-Install:
-# ./configure install
+Installation :
+  Ajouter le dépôt suivant à votre sources.list :
+    deb http://github.com/syam44/fix-aptitude-dependencies/blob/master/repository/ binary/
+  # aptitude update
+  # aptitude install fix-aptitude-dependencies
 
-Usage:
-# fix-aptitude-dependencies
-
-Remove (keep configuration):
-# ./configure remove
-
-Purge (delete configuration):
-# ./configure purge
+Usage :
+  # fix-aptitude-dependencies

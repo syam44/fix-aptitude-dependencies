@@ -1,0 +1,10 @@
+fix-aptitude-dependencies (2.0) unstable; urgency=high
+
+  Le script est maintenant écrit en perl (précédemment il était en shell).
+  Cette décision a été prise pour des raisons de maintenabilité.
+
+  En conséquence, le format du fichier de configuration
+  /etc/apt/fix-aptitude-dependencies.conf a changé.
+  Veuillez adapter votre fichier de configuration à la nouvelle syntaxe.
+
+ -- syam <aks92@free.fr>  Sat, 14 Jul 2012 12:00:00 +0200

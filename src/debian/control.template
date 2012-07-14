@@ -1,0 +1,9 @@
+Package: fix-aptitude-dependencies
+Version: ${VERSION}
+Homepage: https://github.com/syam44/fix-aptitude-dependencies
+Section: admin
+Architecture: all
+Essential: no
+${DEPENDENCIES}
+Maintainer: syam <aks92@free.fr>
+Description: ${README}

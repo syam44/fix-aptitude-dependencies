@@ -1,0 +1,44 @@
+#!/bin/sh
+
+if [ "$(id -u)" != "0" ]; then
+  echo "Entering fakeroot environment..."
+  fakeroot -- "$0"
+  echo "Leaving fakeroot environment..."
+  exit
+fi
+
+set -e
+
+cd "$(dirname "$(readlink -f "$0")")"
+
+PKG_VERSION="$(cat ../VERSION)"
+PKG_DEPENDENCIES="$(cat ../DEPENDENCIES | sed ':a;N;$!ba;s@\n @, @g;s@:,@:@g;s@ \+@ @g;s@\n@\\n@g')"
+PKG_README="$(cat ../README | head -n 1)\\n$(cat ../README | tail -n +2 | sed ':a;N;$!ba;s@^\n@.\n@g;s@\n\n@\n.\n@g;s@^\(.\)@ \1@g;s@\n@\n @g;s@\n@\\n@g')"
+
+PKG_DIR="./fix-aptitude-dependencies_${PKG_VERSION}_all"
+rm -rf "$PKG_DIR" || true
+cp -R "./pkg-src" "$PKG_DIR"
+mkdir -p "$PKG_DIR/DEBIAN"
+gzip --best "$PKG_DIR/usr/share/doc/fix-aptitude-dependencies/NEWS.Debian"
+
+echo "$(cat ./control.template)" | sed 's@\${VERSION}@'"$PKG_VERSION"'@;s@\${DEPENDENCIES}@'"$PKG_DEPENDENCIES"'@;s@\${README}@'"$PKG_README"'@' > "$PKG_DIR/DEBIAN/control";
+
+mkdir -p "$PKG_DIR/usr/sbin"
+cp ../fix-aptitude-dependencies "$PKG_DIR/usr/sbin"
+mkdir -p "$PKG_DIR/etc/apt"
+cp ../fix-aptitude-dependencies.conf "$PKG_DIR/etc/apt"
+
+chown -R root:root "$PKG_DIR"
+chmod -R a+r "$PKG_DIR"
+find "$PKG_DIR" -type d -print0 | xargs -0 chmod a+rx
+chmod u+rwx,a+rx "$PKG_DIR/usr/sbin/fix-aptitude-dependencies"
+
+dpkg-deb --build "$PKG_DIR"
+rm -rf "$PKG_DIR"
+
+REPO_DIR="../../repository"
+rm -rf "$REPO_DIR" || true
+mkdir -p "$REPO_DIR/binary"
+mv "$PKG_DIR.deb" "$REPO_DIR/binary"
+cd "$REPO_DIR"
+dpkg-scanpackages binary /dev/null | gzip -9c > binary/Packages.gz
