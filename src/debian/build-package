@@ -15,7 +15,7 @@ PKG_VERSION="$(cat ../VERSION)"
 PKG_DEPENDENCIES="$(cat ../DEPENDENCIES | sed ':a;N;$!ba;s@\n @, @g;s@:,@:@g;s@ \+@ @g;s@\n@\\n@g')"
 PKG_README="$(cat ../README | head -n 1)\\n$(cat ../README | tail -n +2 | sed ':a;N;$!ba;s@^\n@.\n@g;s@\n\n@\n.\n@g;s@^\(.\)@ \1@g;s@\n@\n @g;s@\n@\\n@g')"
 
-PKG_DIR="./fix-aptitude-dependencies_${PKG_VERSION}_all"
+PKG_DIR="$(readlink -f "./fix-aptitude-dependencies_${PKG_VERSION}_all")"
 rm -rf "$PKG_DIR" || true
 cp -R "./pkg-src" "$PKG_DIR"
 mkdir -p "$PKG_DIR/DEBIAN"
@@ -37,3 +37,6 @@ dpkg-deb --build "$PKG_DIR"
 rm -rf "$PKG_DIR"
 
 mv "$PKG_DIR.deb" "../.."
+cd ../..
+rm -f fix-aptitude-dependencies.deb || true
+ln -s "$(basename "$PKG_DIR.deb")" fix-aptitude-dependencies.deb
