@@ -36,9 +36,4 @@ chmod u+rwx,a+rx "$PKG_DIR/usr/sbin/fix-aptitude-dependencies"
 dpkg-deb --build "$PKG_DIR"
 rm -rf "$PKG_DIR"
 
-REPO_DIR="../../repository"
-rm -rf "$REPO_DIR" || true
-mkdir -p "$REPO_DIR/binary"
-mv "$PKG_DIR.deb" "$REPO_DIR/binary"
-cd "$REPO_DIR"
-dpkg-scanpackages binary /dev/null | gzip -9c > binary/Packages.gz
+mv "$PKG_DIR.deb" "../.."

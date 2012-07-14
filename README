@@ -1,14 +1,1 @@
-Aide à la gestion des dépendances pour apt(itude).
-
-Installation :
-  Ajouter le dépôt suivant à votre sources.list :
-    deb http://github.com/syam44/fix-aptitude-dependencies/blob/master/repository/ binary/
-  # aptitude update
-  # aptitude install fix-aptitude-dependencies
-
-Fonctionnalités :
-- correction des dépendances manuelles/automatiques
-- détection des dépendances circulaires
-- détection des paquets orphelins
-
-Explications : https://www.debian-fr.org/aptitude-gestion-des-dependances-et-orphelins-t35575.html
+src/README

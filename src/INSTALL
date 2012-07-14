@@ -1,8 +1,5 @@
 Installation :
-  Ajouter le dépôt suivant à votre sources.list :
-    deb http://github.com/syam44/fix-aptitude-dependencies/blob/master/repository/ binary/
-  # aptitude update
-  # aptitude install fix-aptitude-dependencies
+  Télécharger et installer le .deb
 
 Usage :
   # fix-aptitude-dependencies

@@ -1,5 +1,8 @@
 Aide à la gestion des dépendances pour apt(itude).
 
+Installation :
+  Télécharger et installer le .deb
+
 Fonctionnalités :
 - correction des dépendances manuelles/automatiques
 - détection des dépendances circulaires
