@@ -424,7 +424,7 @@ sub aptitudeCycles_FindCycles {
 # Deborphan
 #-----------------------------------------------------------------------------
 sub deborphanDetect {
-  my @ignored = qx{which deborphan};
+  my @ignored = qx{deborphan -L};
   if ($::CHILD_ERROR >> 8) {
     say 'deborphan n\'est pas installé, impossible de déterminer les bibliothèques orphelines.';
   }
