@@ -1,8 +1,5 @@
 Installation :
-  # aptitude install apt-transport-https
-  # echo "deb https://github.com/syam44/fix-aptitude-dependencies/raw/master/debian/ packages/" >> /etc/apt/sources.list
-  # aptitude update
-  # aptitude install fix-aptitude-dependencies
+  Télécharger le .deb et l'installer (dpkg).
 
 Usage :
   # fix-aptitude-dependencies
