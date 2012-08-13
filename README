@@ -1,1 +1,17 @@
-src/README
+Aide à la gestion des dépendances pour apt(itude).
+
+Installation :
+  # aptitude install apt-transport-https
+  # echo "deb https://github.com/syam44/fix-aptitude-dependencies/raw/master/debian/ packages/" >> /etc/apt/sources.list
+  # aptitude update
+  # aptitude install fix-aptitude-dependencies
+
+Usage :
+  # fix-aptitude-dependencies
+
+Fonctionnalités :
+- correction des dépendances manuelles/automatiques
+- détection des dépendances circulaires
+- détection des paquets orphelins
+
+Explications : https://www.debian-fr.org/aptitude-gestion-des-dependances-et-orphelins-t35575.html

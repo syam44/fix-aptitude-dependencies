@@ -8,12 +8,13 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 set -e
-
 cd "$(dirname "$(readlink -f "$0")")"
 
-PKG_VERSION="$(cat ../VERSION)"
-PKG_DEPENDENCIES="$(cat ../DEPENDENCIES | sed ':a;N;$!ba;s@\n @, @g;s@:,@:@g;s@ \+@ @g;s@\n@\\n@g')"
-PKG_README="$(cat ../README | head -n 1)\\n$(cat ../README | tail -n +2 | sed ':a;N;$!ba;s@^\n@.\n@g;s@\n\n@\n.\n@g;s@^\(.\)@ \1@g;s@\n@\n @g;s@\n@\\n@g')"
+SRC_DIR="../src"
+
+PKG_VERSION="$(cat "$SRC_DIR/VERSION")"
+PKG_DEPENDENCIES="$(cat "$SRC_DIR/DEPENDENCIES" | sed ':a;N;$!ba;s@\n @, @g;s@:,@:@g;s@ \+@ @g;s@\n@\\n@g')"
+PKG_README="$(cat "$SRC_DIR/README" | head -n 1)\\n$(cat "$SRC_DIR/README" | tail -n +2 | sed ':a;N;$!ba;s@^\n@.\n@g;s@\n\n@\n.\n@g;s@^\(.\)@ \1@g;s@\n@\n @g;s@\n@\\n@g')"
 
 PKG_DIR="$(readlink -f "./fix-aptitude-dependencies_${PKG_VERSION}_all")"
 rm -rf "$PKG_DIR" || true
@@ -24,9 +25,9 @@ gzip --best "$PKG_DIR/usr/share/doc/fix-aptitude-dependencies/NEWS.Debian"
 echo "$(cat ./control.template)" | sed 's@\${VERSION}@'"$PKG_VERSION"'@;s@\${DEPENDENCIES}@'"$PKG_DEPENDENCIES"'@;s@\${README}@'"$PKG_README"'@' > "$PKG_DIR/DEBIAN/control";
 
 mkdir -p "$PKG_DIR/usr/sbin"
-cp ../fix-aptitude-dependencies "$PKG_DIR/usr/sbin"
+cp "$SRC_DIR/fix-aptitude-dependencies" "$PKG_DIR/usr/sbin"
 mkdir -p "$PKG_DIR/etc/apt"
-cp ../fix-aptitude-dependencies.conf "$PKG_DIR/etc/apt"
+cp "$SRC_DIR/fix-aptitude-dependencies.conf" "$PKG_DIR/etc/apt"
 
 chown -R root:root "$PKG_DIR"
 chmod -R a+r "$PKG_DIR"
@@ -36,4 +37,6 @@ chmod u+rwx,a+rx "$PKG_DIR/usr/sbin/fix-aptitude-dependencies"
 dpkg-deb --build "$PKG_DIR"
 rm -rf "$PKG_DIR"
 
-mv "$PKG_DIR.deb" "../../fix-aptitude-dependencies.deb"
+rm -f ./packages/*.deb
+mv "$PKG_DIR.deb" "./packages/"
+dpkg-scanpackages packages /dev/null | gzip -9c > packages/Packages.gz

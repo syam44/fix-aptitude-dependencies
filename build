@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+cd "$(dirname "$(readlink -f "$0")")"
+
+# Github README = README + INSTALL
+head -n 1 src/README > ./README
+echo >> ./README
+cat src/INSTALL >> ./README
+tail -n +2 src/README >> ./README
+
+# Build .deb
+debian/build
