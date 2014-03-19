@@ -113,7 +113,7 @@ sub checkAptitudeVersion {
   else {
     # aptitude 0.6.6 fixes #603862
     my ($major, $minor, $build) = $aptitudeVersion =~ /^([^.]+)\.([^.]+)\.([^.]+)/;
-    if (($major eq 0) && (($minor lt 6) || (($minor eq 6) && ($build lt 6)))) {
+    if (($major == 0) && (($minor < 6) || (($minor < 6) && ($build < 6)))) {
       say STDERR "${COLOR_ERROR}ERREUR :${COLOR_NONE} La version ${COLOR_ARGUMENT}${aptitudeVersion}${COLOR_NONE} d'${COLOR_ARGUMENT}aptitude${COLOR_NONE} n'est pas supportée.";
       exit 255;
     }
